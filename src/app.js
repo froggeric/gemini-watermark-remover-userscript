@@ -1,7 +1,15 @@
 import { WatermarkEngine } from './core/watermarkEngine.js';
 import { resolveDisplayWatermarkInfo } from './core/watermarkDisplay.js';
 import i18n from './i18n.js';
-import { loadImage, checkOriginal, getOriginalStatus, setStatusMessage, showLoading, hideLoading } from './utils.js';
+import {
+    loadImage,
+    checkOriginal,
+    getOriginalStatus,
+    resolveOriginalValidation,
+    setStatusMessage,
+    showLoading,
+    hideLoading
+} from './utils.js';
 import JSZip from 'jszip';
 import mediumZoom from 'medium-zoom';
 
@@ -121,6 +129,7 @@ function reset() {
     fileInput.value = '';
     copyBtn.style.display = 'none';
     downloadBtn.style.display = 'none';
+    setStatusMessage('');
     uploadArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -129,6 +138,8 @@ function handleFileSelect(e) {
 }
 
 function handleFiles(files) {
+    setStatusMessage('');
+
     const validFiles = files.filter(file => {
         if (!file.type.match('image/(jpeg|png|webp)')) return false;
         if (file.size > 20 * 1024 * 1024) return false;
@@ -234,7 +245,7 @@ function renderImageCardStatus(item) {
         <p>${i18n.t('info.watermark')}: ${watermarkInfo.size}×${watermarkInfo.size}</p>
         <p>${i18n.t('info.position')}: (${watermarkInfo.position.x},${watermarkInfo.position.y})</p>`;
 
-    if (item.validation && (!item.validation.is_google || !item.validation.is_original)) {
+    if (item.validation && !item.validation.is_google) {
         html += `<p class="inline-block mt-1 text-xs md:text-sm text-warn">${getOriginalStatus(item.validation)}</p>`;
     }
 
@@ -249,13 +260,17 @@ async function processSingle(item) {
         const validation = await checkOriginal(item.file);
         item.validation = validation;
         const status = getOriginalStatus(validation);
-        setStatusMessage(status, validation.is_google && validation.is_original ? 'success' : 'warn');
+        setStatusMessage(status, validation.is_google ? 'success' : 'warn');
 
         originalImage.src = img.src;
         renderSingleImageMeta(item);
 
         const result = await engine.removeWatermarkFromImage(img);
         item.processedMeta = result.__watermarkMeta || null;
+        item.validation = resolveOriginalValidation(item.validation, item.processedMeta);
+        const resolvedStatus = getOriginalStatus(item.validation);
+        setStatusMessage(resolvedStatus, item.validation.is_google ? 'success' : 'warn');
+
         renderSingleImageMeta(item);
         const blob = await new Promise(resolve => result.toBlob(resolve, 'image/png'));
         item.processedBlob = blob;
@@ -352,7 +367,7 @@ async function processQueue() {
                 updateProgress();
 
                 checkOriginal(item.file).then((validation) => {
-                    item.validation = validation;
+                    item.validation = resolveOriginalValidation(validation, item.processedMeta);
                     renderImageCardStatus(item);
                 }).catch(() => { });
             } catch (error) {
@@ -396,7 +411,7 @@ function updateDynamicTexts() {
 
         if (item?.validation) {
             const status = getOriginalStatus(item.validation);
-            setStatusMessage(status, item.validation.is_google && item.validation.is_original ? 'success' : 'warn');
+            setStatusMessage(status, item.validation.is_google ? 'success' : 'warn');
         }
     }
 }

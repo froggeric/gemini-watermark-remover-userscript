@@ -6,6 +6,7 @@
 import { calculateAlphaMap } from './alphaMap.js';
 import { removeWatermark } from './blendModes.js';
 import {
+    computeRegionSpatialCorrelation,
     detectAdaptiveWatermarkRegion,
     interpolateAlphaMap,
     shouldAttemptAdaptiveFallback
@@ -125,6 +126,7 @@ export class WatermarkEngine {
         let position = calculateWatermarkPosition(canvas.width, canvas.height, config);
         let alphaMap = config.logoSize === 96 ? alpha96 : alpha48;
         let source = 'standard';
+        let adaptiveConfidence = null;
 
         // First pass: keep the fast fixed-rule path.
         const fixedImageData = new ImageData(
@@ -154,6 +156,7 @@ export class WatermarkEngine {
             });
 
             if (adaptive.found) {
+                adaptiveConfidence = adaptive.confidence;
                 const size = adaptive.region.size;
                 const adaptivePosition = {
                     x: adaptive.region.x,
@@ -187,6 +190,26 @@ export class WatermarkEngine {
             }
         }
 
+        const originalSpatialScore = computeRegionSpatialCorrelation({
+            imageData: originalImageData,
+            alphaMap,
+            region: {
+                x: position.x,
+                y: position.y,
+                size: position.width
+            }
+        });
+        const processedSpatialScore = computeRegionSpatialCorrelation({
+            imageData: finalImageData,
+            alphaMap,
+            region: {
+                x: position.x,
+                y: position.y,
+                size: position.width
+            }
+        });
+        const suppressionGain = originalSpatialScore - processedSpatialScore;
+
         // Write processed image data back to canvas
         ctx.putImageData(finalImageData, 0, 0);
 
@@ -202,6 +225,12 @@ export class WatermarkEngine {
                 logoSize: config.logoSize,
                 marginRight: config.marginRight,
                 marginBottom: config.marginBottom
+            },
+            detection: {
+                adaptiveConfidence,
+                originalSpatialScore,
+                processedSpatialScore,
+                suppressionGain
             },
             source
         };

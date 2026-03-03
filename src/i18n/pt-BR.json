@@ -46,7 +46,6 @@
 	"info.position": "Posição",
 	"info.status": "Status",
 	"info.removed": "Marca d'água removida",
-	"original.not_gemini": "⚠️ Esta imagem pode não ter sido criada com o Gemini. Processamento sem perdas indisponível.",
-	"original.not_original": "⚠️ Esta imagem pode não estar no tamanho original. Processamento sem perdas indisponível.",
-	"original.pass": "✅ Esta imagem foi criada com o Gemini. Processamento sem perdas é suportado."
+	"original.not_gemini": "⚠️ Esta imagem pode não ter sido gerada pelo Gemini. O processamento sem perdas pode não estar disponível.",
+	"original.pass": "✅ Processada com as regras de marca d'água do Gemini. Caminho sem perdas disponível."
 }

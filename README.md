@@ -86,6 +86,16 @@ pnpm build
 pnpm serve
 ```
 
+## Testing
+
+```bash
+# Run all tests
+pnpm test
+```
+
+Regression tests include image fixtures from `src/assets/samples/`.
+These fixture files are part of the repository and should be kept in git so collaborators and CI can run the same checks.
+
 ## How it Works
 
 ### The Gemini Watermarking Process

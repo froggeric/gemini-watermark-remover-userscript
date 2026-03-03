@@ -42,6 +42,11 @@ function normalizeDimension(value) {
     return rounded > 0 ? rounded : null;
 }
 
+function normalizeScore(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
 function addDimensionPair(set, width, height) {
     if (width <= 0 || height <= 0) return;
     if (width % GEMINI_STEP !== 0 || height % GEMINI_STEP !== 0) return;
@@ -142,9 +147,70 @@ export async function checkOriginal(file) {
     }
 }
 
+export function isLikelyGeminiByWatermarkMeta(
+    watermarkMeta,
+    {
+        minSpatialScore = 0.22,
+        maxResidualScore = 0.2,
+        minSuppressionGain = 0.25,
+        minAdaptiveConfidence = 0.35,
+        minAdaptiveSuppressionGain = 0.16,
+        minSize = 24,
+        maxSize = 192
+    } = {}
+) {
+    if (!watermarkMeta || typeof watermarkMeta !== 'object') return false;
+
+    const size = normalizeDimension(watermarkMeta.size);
+    if (!size || size < minSize || size > maxSize) return false;
+
+    const position = watermarkMeta.position;
+    const positionWidth = normalizeDimension(position?.width);
+    const positionHeight = normalizeDimension(position?.height);
+    if (!positionWidth || !positionHeight) return false;
+
+    const detection = watermarkMeta.detection || {};
+    const adaptiveConfidence = normalizeScore(detection.adaptiveConfidence);
+    const originalSpatialScore = normalizeScore(detection.originalSpatialScore);
+    const processedSpatialScore = normalizeScore(detection.processedSpatialScore);
+    const suppressionGain = normalizeScore(detection.suppressionGain);
+
+    if (
+        adaptiveConfidence !== null &&
+        adaptiveConfidence >= minAdaptiveConfidence &&
+        suppressionGain !== null &&
+        suppressionGain >= minAdaptiveSuppressionGain
+    ) {
+        return true;
+    }
+
+    return (
+        originalSpatialScore !== null &&
+        processedSpatialScore !== null &&
+        suppressionGain !== null &&
+        originalSpatialScore >= minSpatialScore &&
+        processedSpatialScore <= maxResidualScore &&
+        suppressionGain >= minSuppressionGain
+    );
+}
+
+export function resolveOriginalValidation(validation, watermarkMeta) {
+    const normalized = {
+        is_google: Boolean(validation?.is_google),
+        is_original: Boolean(validation?.is_original)
+    };
+
+    if (normalized.is_google) return normalized;
+    if (!isLikelyGeminiByWatermarkMeta(watermarkMeta)) return normalized;
+
+    return {
+        ...normalized,
+        is_google: true
+    };
+}
+
 export function getOriginalStatus({ is_google, is_original }) {
     if (!is_google) return i18n.t('original.not_gemini');
-    if (!is_original) return i18n.t('original.not_original');
     return i18n.t('original.pass');
 }
 

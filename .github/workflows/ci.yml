@@ -30,6 +30,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate sample fixtures
+        run: |
+          if [ ! -d src/assets/samples ] || [ -z "$(ls -A src/assets/samples)" ]; then
+            echo "Missing regression fixtures in src/assets/samples"
+            exit 1
+          fi
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Build
         run: pnpm build
 
